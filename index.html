@@ -169,7 +169,7 @@ function makePdf(canvas){
 }
 let generatedPdfUrl=null;
 $('printBtn').addEventListener('click',()=>{
- const btn=$('printBtn'),notice=$('printNotice');btn.disabled=true;notice.style.display='block';notice.textContent='Préparation du PDF…';
+ const btn=$('printBtn'),notice=$('printNotice'),eve=$('eveNumber').value.trim();if(eve&&!/^\d{5}$/.test(eve)){notice.style.display='block';notice.textContent='Le numéro d’EVE doit contenir exactement 5 chiffres après EVE.';$('eveNumber').focus();return}btn.disabled=true;notice.style.display='block';notice.textContent='Préparation du PDF…';
  try{
   const canvas=reportCanvas(),blob=makePdf(canvas),file=new File([blob],`rapport-intervention-msi-fas-${valueForFilename($('date').value)}.pdf`,{type:'application/pdf'});
   if(generatedPdfUrl)URL.revokeObjectURL(generatedPdfUrl);generatedPdfUrl=URL.createObjectURL(blob);
