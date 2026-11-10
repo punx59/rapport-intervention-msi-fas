@@ -141,16 +141,21 @@ function makePdf(canvas){
  const xrefOffset=offset;addText('xref\n0 6\n0000000000 65535 f \n');for(let i=1;i<=5;i++)addText(`${String(offsets[i]).padStart(10,'0')} 00000 n \n`);addText(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
  return new Blob(chunks,{type:'application/pdf'});
 }
+let generatedPdfUrl=null;
 $('printBtn').addEventListener('click',()=>{
  const btn=$('printBtn'),notice=$('printNotice');btn.disabled=true;notice.style.display='block';notice.textContent='Préparation du PDF…';
  try{
   const canvas=reportCanvas(),blob=makePdf(canvas),file=new File([blob],`rapport-intervention-msi-fas-${valueForFilename($('date').value)}.pdf`,{type:'application/pdf'});
+  if(generatedPdfUrl)URL.revokeObjectURL(generatedPdfUrl);generatedPdfUrl=URL.createObjectURL(blob);
+  const fallback=`Si la feuille iOS ne s’ouvre pas, <a href="${generatedPdfUrl}" target="_blank" rel="noopener">ouvrez le PDF ici</a>.`;
   if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-   navigator.share({files:[file],title:'Rapport d’intervention MSI-FAS'}).then(()=>{notice.textContent='Feuille de partage ouverte. Choisissez Enregistrer dans Fichiers ou une app.';}).catch(error=>{notice.textContent=error?.name==='AbortError'?'Partage annulé. Touchez le bouton pour réessayer.':'Le partage iOS n’a pas abouti. Réessayez ou ouvrez la page dans Safari.';});
+   const sharing=navigator.share({files:[file],title:'Rapport d’intervention MSI-FAS'});
+   notice.innerHTML=`La feuille de partage iOS s’ouvre. Choisissez <b>Enregistrer dans Fichiers</b>. ${fallback}`;
+   sharing.then(()=>{notice.innerHTML=`Partage terminé. ${fallback}`;}).catch(error=>{notice.innerHTML=error?.name==='AbortError'?`Partage annulé. Touchez le bouton pour réessayer. ${fallback}`:`Le partage n’a pas abouti. ${fallback}`;});
   }else{
-   const url=URL.createObjectURL(blob),opened=window.open(url,'_blank');
-   if(!opened){const link=document.createElement('a');link.href=url;link.download=file.name;link.click()}
-   notice.textContent=opened?'Le PDF est ouvert. Utilisez le bouton Partager du lecteur pour l’enregistrer.':'Téléchargement du PDF lancé.';setTimeout(()=>URL.revokeObjectURL(url),60000);
+   const opened=window.open(generatedPdfUrl,'_blank');
+   if(!opened){const link=document.createElement('a');link.href=generatedPdfUrl;link.download=file.name;link.click()}
+   notice.innerHTML=`Le PDF est prêt. Utilisez le bouton Partager du lecteur pour l’enregistrer. ${fallback}`;
   }
  }catch(error){notice.textContent='Le PDF n’a pas pu être créé. Réessayez.';}
  finally{btn.disabled=false;}
@@ -167,7 +172,7 @@ $('resetBtn').addEventListener('click',()=>{
  ['sigClientPrint','sigTechPrint'].forEach(id=>$(id).removeAttribute('src'));
  $('printClientName').textContent='';$('printTechnicianName').textContent='';document.querySelectorAll('.printDate').forEach(el=>el.textContent='');
  $('locationStatus').textContent='Autorisez la localisation pour ouvrir une recherche Google Maps centrée sur votre position. Les résultats et coordonnées proviennent de Google Maps, sans récupération automatique d’une fiche.';
- $('printNotice').style.display='none';window.scrollTo({top:0,behavior:'smooth'});
+ $('printNotice').style.display='none';if(generatedPdfUrl){URL.revokeObjectURL(generatedPdfUrl);generatedPdfUrl=null}window.scrollTo({top:0,behavior:'smooth'});
 });
 function calculateWorkTime(){const start=$('start').value,end=$('end').value;if(!start||!end){$('workTime').value='';return}const toMinutes=t=>{const [h,m]=t.split(':').map(Number);return h*60+m};let minutes=toMinutes(end)-toMinutes(start);if(minutes<0)minutes+=24*60;const hours=Math.floor(minutes/60),remaining=minutes%60;$('workTime').value=hours?`${hours} h${remaining?` ${remaining} min`:''}`:`${remaining} min`;}
 $('start').addEventListener('input',calculateWorkTime);$('end').addEventListener('input',calculateWorkTime);
