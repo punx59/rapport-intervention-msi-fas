@@ -55,7 +55,7 @@
 <section id="workSection" class="card"><h2>Commentaires / actions</h2><div class="grid"><div class="field wide"><label for="work">Travaux réalisés / diagnostic</label><textarea id="work"></textarea></div><div class="field wide"><label for="comments">Commentaires / recommandations</label><textarea id="comments"></textarea></div></div></section>
 <section id="partsSection" class="card"><h2>Pièces détachées</h2><div class="parts-head"><span>Désignation</span><span>Référence</span><span>Quantité</span></div><div id="parts"></div><button id="addPart" class="secondary no-print" type="button">＋ Ajouter une pièce</button></section>
 <section id="signaturesSection" class="card"><h2>Signatures</h2><div class="grid"><div><label>CLIENT · Nom : <span id="printClientName"></span></label><div class="signature"><canvas id="sigClient" aria-label="Zone de signature du client"></canvas><div class="sigbar"><span class="hint">Signez avec le doigt</span><button type="button" class="secondary clearSig" data-canvas="sigClient">Effacer</button></div></div><img id="sigClientPrint" class="sigprint" alt="Signature du client"><small>Date : <span class="printDate"></span></small></div><div><label>REPRÉSENTANT MSI-FAS · <span id="printTechnicianName"></span></label><div class="signature"><canvas id="sigTech" aria-label="Zone de signature du technicien"></canvas><div class="sigbar"><span class="hint">Signez avec le doigt</span><button type="button" class="secondary clearSig" data-canvas="sigTech">Effacer</button></div></div><img id="sigTechPrint" class="sigprint" alt="Signature du technicien"><small>Date : <span class="printDate"></span></small></div></div></section>
-<div class="no-print card"><h2>Exporter le rapport en PDF</h2><p class="hint">Sur iPhone, touchez le bouton puis, dans la feuille d’impression iOS, ouvrez l’aperçu avec deux doigts et utilisez <b>Partager → Enregistrer dans Fichiers</b>. Le PDF inclut les informations saisies et les signatures.</p><div class="actions"><button id="printBtn">📄 Exporter en PDF</button><button id="resetBtn" class="secondary" type="button">↺ Réinitialiser les champs</button></div><div id="printNotice" class="notice" role="status">La feuille d’impression va s’ouvrir. Sur iPhone, agrandissez l’aperçu avec deux doigts, puis choisissez Partager pour enregistrer ou envoyer le PDF.</div></div>
+<div class="no-print card"><h2>Partager ou enregistrer le rapport en PDF</h2><p class="hint">Sur iPhone, le bouton ouvre la feuille de partage iOS avec le rapport PDF. Choisissez <b>Enregistrer dans Fichiers</b> ou une autre app.</p><div class="actions"><button id="printBtn">📤 Partager / enregistrer le PDF</button><button id="resetBtn" class="secondary" type="button">↺ Réinitialiser les champs</button></div><div id="printNotice" class="notice" role="status">Préparation du PDF…</div></div>
 </main><script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id); const mapsSearch=q=>`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
@@ -83,7 +83,80 @@ function setupCanvas(canvas){
 }
 const contexts={sigClient:setupCanvas($('sigClient')),sigTech:setupCanvas($('sigTech'))};document.querySelectorAll('.clearSig').forEach(b=>b.onclick=()=>{const c=$(b.dataset.canvas);contexts[c.id].clear()});
 $('addPart').onclick=()=>{const row=document.createElement('div');row.className='parts-row';row.innerHTML='<input aria-label="Désignation" placeholder="Désignation de la pièce"><input aria-label="Référence" placeholder="Référence"><input aria-label="Quantité" type="number" min="0" placeholder="Qté"><button type="button" aria-label="Supprimer la pièce">×</button>';row.querySelector('button').onclick=()=>row.remove();$('parts').appendChild(row)};$('addPart').click();
-$('printBtn').addEventListener('click',()=>{preparePrint();$('printNotice').style.display='block';window.print()});
+function reportCanvas(){
+ const canvas=document.createElement('canvas');canvas.width=1240;canvas.height=1754;
+ const ctx=canvas.getContext('2d');const W=canvas.width,M=64,G=24,CW=(W-2*M-G)/2;
+ const green='#31866f',light='#42a989',ink='#20352d',muted='#557268',rule='#a7c7b5',pale='#eaf5f0';
+ ctx.fillStyle='#fff';ctx.fillRect(0,0,W,canvas.height);
+ const value=id=>($(id)?.value||'').trim();
+ function wrap(text,font,maxWidth){ctx.font=font;const lines=[];for(const para of String(text||'').split('\n')){if(!para){lines.push('');continue}let line='';for(const word of para.split(/\s+/)){const test=line?line+' '+word:word;if(line&&ctx.measureText(test).width>maxWidth){lines.push(line);line=word}else line=test}lines.push(line)}return lines}
+ function drawLines(lines,x,y,step,font,color,maxLines=Infinity){ctx.font=font;ctx.fillStyle=color;const take=lines.slice(0,maxLines);take.forEach((line,i)=>ctx.fillText(line,x,y+i*step));if(lines.length>maxLines&&take.length)ctx.fillText('…',x+Math.min(ctx.measureText(take[take.length-1]).width,130),y+(take.length-1)*step)}
+ function section(x,y,w,h,title){ctx.fillStyle='#fff';ctx.fillRect(x,y,w,h);ctx.strokeStyle=green;ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);ctx.fillStyle=green;ctx.font='700 25px -apple-system,BlinkMacSystemFont,Arial,sans-serif';ctx.fillText(title,x+18,y+34);ctx.strokeStyle=light;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x+18,y+48);ctx.lineTo(x+w-18,y+48);ctx.stroke()}
+ function field(label,val,x,y,w){ctx.fillStyle=muted;ctx.font='700 15px -apple-system,BlinkMacSystemFont,Arial,sans-serif';ctx.fillText(label.toUpperCase(),x,y);drawLines(wrap(val||' ', '20px -apple-system,BlinkMacSystemFont,Arial,sans-serif',w),x,y+26,24,'20px -apple-system,BlinkMacSystemFont,Arial,sans-serif',ink,2)}
+ // Header
+ ctx.fillStyle=green;ctx.font='800 38px -apple-system,BlinkMacSystemFont,Arial,sans-serif';ctx.fillText('MSI-FAS',M,96);
+ ctx.fillStyle=muted;ctx.font='18px -apple-system,BlinkMacSystemFont,Arial,sans-serif';ctx.fillText('Technology & Diagnostics',M,125);
+ ctx.strokeStyle=green;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(M,148);ctx.lineTo(W-M,148);ctx.stroke();
+ ctx.strokeRect(580,67,W-M-580,67);ctx.fillStyle=green;ctx.font='700 27px -apple-system,BlinkMacSystemFont,Arial,sans-serif';ctx.fillText('RAPPORT D’INTERVENTION',600,108);
+ // Client and equipment
+ const y0=175,h0=300;section(M,y0,CW,h0,'Client et établissement');section(M+CW+G,y0,CW,h0,'Équipement et intervention');
+ let x=M+18,y=y0+80,fw=(CW-54)/2;
+ field('Client / établissement',value('client'),x,y,fw);field('Contact',value('contact'),x+fw+18,y,fw);y+=72;
+ field('Adresse',value('address'),x,y,CW-44);y+=72;
+ field('Code postal / Ville',[value('postal'),value('city')].filter(Boolean).join(' '),x,y,fw);field('Téléphone',value('phone'),x+fw+18,y,fw);y+=72;
+ const dateValue=value('date');field('Date',dateValue?dateValue.split('-').reverse().join('/'):'',x,y,fw);
+ x=M+CW+G+18;y=y0+80;
+ field('Équipement / modèle',value('equipment'),x,y,fw);field('Numéro de série',value('serial'),x+fw+18,y,fw);y+=72;
+ field('Intervention',value('type'),x,y,fw);field('Technicien',value('technician'),x+fw+18,y,fw);y+=72;
+ field('Début',value('start'),x,y,fw);field('Fin',value('end'),x+fw+18,y,fw);y+=72;
+ field('Temps de travail',value('workTime'),x,y,fw);field('Temps de trajet / distance',[value('travel'),value('distance')].filter(Boolean).join(' · '),x+fw+18,y,fw);
+ // Work notes
+ const wy=495,wh=395;section(M,wy,W-2*M,wh,'Commentaires / actions');
+ const innerX=M+22,innerW=W-2*M-44,subH=148;
+ const notes=[['TRAVAUX RÉALISÉS / DIAGNOSTIC',value('work')],['COMMENTAIRES / RECOMMANDATIONS',value('comments')]];
+ notes.forEach((item,i)=>{const sy=wy+70+i*158;ctx.fillStyle=muted;ctx.font='700 17px -apple-system,BlinkMacSystemFont,Arial,sans-serif';ctx.fillText(item[0],innerX,sy);ctx.strokeStyle=rule;ctx.lineWidth=1;for(let j=1;j<=5;j++){ctx.beginPath();ctx.moveTo(innerX,sy+j*25);ctx.lineTo(innerX+innerW,sy+j*25);ctx.stroke()}const lines=wrap(item[1],'19px -apple-system,BlinkMacSystemFont,Arial,sans-serif',innerW);drawLines(lines,innerX,sy+24,25,'19px -apple-system,BlinkMacSystemFont,Arial,sans-serif',ink,5)});
+ // Parts table
+ const py=910,ph=340;section(M,py,W-2*M,ph,'Pièces détachées');const tx=M+18,tableW=W-2*M-36,headY=py+72;
+ const cols=[tableW*.51,tableW*.29,tableW*.20],xs=[tx,tx+cols[0],tx+cols[0]+cols[1]];
+ ctx.fillStyle=pale;ctx.fillRect(tx,headY-25,tableW,30);ctx.fillStyle=ink;ctx.font='700 17px -apple-system,BlinkMacSystemFont,Arial,sans-serif';['Désignation','Référence','Quantité'].forEach((t,i)=>ctx.fillText(t,xs[i]+6,headY-4));
+ let rows=[...document.querySelectorAll('#parts .parts-row:not(.print-empty)')].map(r=>[...r.querySelectorAll('input')].map(i=>i.value.trim()));while(rows.length<8)rows.push(['','','']);
+ const rowH=Math.min(25,(ph-95)/rows.length);rows.forEach((r,i)=>{const ry=headY+i*rowH;ctx.strokeStyle=rule;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(tx,ry+3);ctx.lineTo(tx+tableW,ry+3);ctx.stroke();ctx.fillStyle=ink;ctx.font='16px -apple-system,BlinkMacSystemFont,Arial,sans-serif';r.slice(0,3).forEach((t,j)=>ctx.fillText(t||' ',xs[j]+6,ry-3,cols[j]-12))});
+ // Signatures
+ const sy=1270,sh=370;section(M,sy,CW,sh,'Signature du client');section(M+CW+G,sy,CW,sh,'Signature du représentant MSI-FAS');
+ const cards=[['sigClient',M],['sigTech',M+CW+G]];
+ cards.forEach(([id,sx],idx)=>{ctx.fillStyle=muted;ctx.font='700 16px -apple-system,BlinkMacSystemFont,Arial,sans-serif';ctx.fillText(idx===0?'NOM DU CLIENT':'NOM DU TECHNICIEN',sx+20,sy+78);ctx.fillStyle=ink;ctx.font='20px -apple-system,BlinkMacSystemFont,Arial,sans-serif';ctx.fillText(idx===0?value('contact'):value('technician'),sx+20,sy+108, CW-40);ctx.strokeStyle=rule;ctx.lineWidth=1;ctx.strokeRect(sx+18,sy+124,CW-36,165);const signature=$(id);if(signature)try{ctx.drawImage(signature,sx+22,sy+128,CW-44,155)}catch(_){}ctx.fillStyle=muted;ctx.font='16px -apple-system,BlinkMacSystemFont,Arial,sans-serif';ctx.fillText(`Date : ${dateValue?dateValue.split('-').reverse().join('/') : ''}`,sx+20,sy+324)});
+ ctx.fillStyle=muted;ctx.font='14px -apple-system,BlinkMacSystemFont,Arial,sans-serif';ctx.fillText('MSI-FAS · Compte rendu technique',M,1685);
+ return canvas;
+}
+function makePdf(canvas){
+ const dataUrl=canvas.toDataURL('image/jpeg',.92),raw=atob(dataUrl.split(',')[1]),imageBytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)imageBytes[i]=raw.charCodeAt(i);
+ const enc=new TextEncoder(),chunks=[];let offset=0;const offsets=[0];
+ const addText=t=>{const b=enc.encode(t);chunks.push(b);offset+=b.length};const addBytes=b=>{chunks.push(b);offset+=b.length};
+ addText('%PDF-1.4\n');
+ offsets[1]=offset;addText('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+ offsets[2]=offset;addText('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+ offsets[3]=offset;addText('3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n');
+ offsets[4]=offset;addText(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imageBytes.length} >>\nstream\n`);addBytes(imageBytes);addText('\nendstream\nendobj\n');
+ const content='q\n595.28 0 0 841.89 0 0 cm\n/Im0 Do\nQ\n';offsets[5]=offset;addText(`5 0 obj\n<< /Length ${enc.encode(content).length} >>\nstream\n${content}endstream\nendobj\n`);
+ const xrefOffset=offset;addText('xref\n0 6\n0000000000 65535 f \n');for(let i=1;i<=5;i++)addText(`${String(offsets[i]).padStart(10,'0')} 00000 n \n`);addText(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+ return new Blob(chunks,{type:'application/pdf'});
+}
+$('printBtn').addEventListener('click',()=>{
+ const btn=$('printBtn'),notice=$('printNotice');btn.disabled=true;notice.style.display='block';notice.textContent='Préparation du PDF…';
+ try{
+  const canvas=reportCanvas(),blob=makePdf(canvas),file=new File([blob],`rapport-intervention-msi-fas-${valueForFilename($('date').value)}.pdf`,{type:'application/pdf'});
+  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+   navigator.share({files:[file],title:'Rapport d’intervention MSI-FAS'}).then(()=>{notice.textContent='Feuille de partage ouverte. Choisissez Enregistrer dans Fichiers ou une app.';}).catch(error=>{notice.textContent=error?.name==='AbortError'?'Partage annulé. Touchez le bouton pour réessayer.':'Le partage iOS n’a pas abouti. Réessayez ou ouvrez la page dans Safari.';});
+  }else{
+   const url=URL.createObjectURL(blob),opened=window.open(url,'_blank');
+   if(!opened){const link=document.createElement('a');link.href=url;link.download=file.name;link.click()}
+   notice.textContent=opened?'Le PDF est ouvert. Utilisez le bouton Partager du lecteur pour l’enregistrer.':'Téléchargement du PDF lancé.';setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+ }catch(error){notice.textContent='Le PDF n’a pas pu être créé. Réessayez.';}
+ finally{btn.disabled=false;}
+});
+function valueForFilename(value){return (value||'rapport').replace(/[^0-9-]/g,'')||'rapport'}
+
 function todayString(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 $('resetBtn').addEventListener('click',()=>{
  if(!window.confirm('Effacer tous les champs, les pièces ajoutées et les signatures ?'))return;
